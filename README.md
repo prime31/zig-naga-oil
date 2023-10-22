@@ -7,14 +7,25 @@ Zig wrapper for [naga_oil](https://github.com/bevyengine/naga_oil) Rust crate
 - `cargo build --release --target x86_64-pc-windows-gnu`: cross compiles
 
 ## Add Package to Your Project
-- copy `zig` folder to your project
-- reference `build.zig`: `const oil_build = @import("path/to/naga_oil/build.zig;`
-- link the library: `oil_build.linkArtifact(exe, target, optimize);`
-- fetch the module and add to your exe: `exe.addModule("naga_oil", oil_build.getModule(b));`
+```zig
+const oil_build = @import("path/to/naga_oil/build.zig;
+const exe = b.createExe(...);
+
+oil_build.linkArtifact(exe);
+exe.addModule("naga_oil", oil_build.getModule(b));
+```
 
 ## Usage
 
 ```zig
+const oil = @import("oil);
+
+// optionally import types
+const Composer = oil.Composer;
+const Module = oil.Module;
+const ShaderDefs = oil.ShaderDefs;
+const Source = oil.Source;
+
 // create a Composer
 const composer = Composer.init();
 defer composer.deinit();
