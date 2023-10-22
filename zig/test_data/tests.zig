@@ -94,6 +94,16 @@ test "bevy pbr" {
     // try std.testing.expect(std.mem.span(source.source).len == 37001);
 }
 
+test "ShaderDefs" {
+    const defs = ShaderDefs.init();
+    defer defs.deinit();
+
+    defs.insertBool("HAS_TANGENTS", true);
+    defs.insertU32("MAX_LIGHTS", 256);
+
+    defs.debugPrint();
+}
+
 test "bevy pbr fail" {
     std.log.warn("", .{});
 

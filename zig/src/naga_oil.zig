@@ -14,7 +14,7 @@ pub const Composer = struct {
         naga_oil.composer_destroy(self.composer);
     }
 
-    pub fn addComposableModule(self: Composer, desc: naga_oil.ComposableModuleDescriptor) !void {
+    pub fn addComposableModule(self: Composer, desc: naga_oil.ComposableModuleDescriptor) error{AddComposableModuleFailed}!void {
         if (naga_oil.add_composable_module(self.composer, desc) < 0) return error.AddComposableModuleFailed;
     }
 
@@ -57,14 +57,18 @@ pub const ShaderDefs = struct {
     }
 
     pub fn insertI32(self: ShaderDefs, key: []const u8, value: i32) void {
-        naga_oil.shader_defs_insert_bool(self.defs, key, value);
+        naga_oil.shader_defs_insert_sint(self.defs, key.ptr, value);
     }
 
     pub fn insertU32(self: ShaderDefs, key: []const u8, value: u32) void {
-        naga_oil.shader_defs_insert_bool(self.defs, key, value);
+        naga_oil.shader_defs_insert_uint(self.defs, key.ptr, value);
     }
 
-    pub fn insertBool(self: ShaderDefs, key: []const u8, value: u32) void {
-        naga_oil.shader_defs_insert_bool(self.defs, key, value);
+    pub fn insertBool(self: ShaderDefs, key: []const u8, value: bool) void {
+        naga_oil.shader_defs_insert_bool(self.defs, key.ptr, value);
+    }
+
+    pub fn debugPrint(self: ShaderDefs) void {
+        naga_oil.shader_defs_debug_print(self.defs);
     }
 };
