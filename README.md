@@ -8,7 +8,7 @@ Zig wrapper for [naga_oil](https://github.com/bevyengine/naga_oil) Rust crate
 
 ## Add Package to Your Project
 ```zig
-const oil_build = @import("path/to/naga_oil/build.zig;
+const oil_build = @import("path/to/naga_oil/build.zig");
 const exe = b.createExe(...);
 
 oil_build.linkArtifact(exe);
@@ -18,7 +18,7 @@ exe.addModule("naga_oil", oil_build.getModule(b));
 ## Usage
 
 ```zig
-const oil = @import("oil);
+const oil = @import("oil");
 
 // optionally import types
 const Composer = oil.Composer;
