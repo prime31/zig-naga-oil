@@ -12,3 +12,7 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+naga_oil_wrapper/.DS_Store
+zig/zig-cache
+zig/zig-out
+.DS_Store
