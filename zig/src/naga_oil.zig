@@ -15,11 +15,11 @@ pub const Composer = struct {
     }
 
     pub fn addComposableModule(self: Composer, desc: naga_oil.ComposableModuleDescriptor) error{AddComposableModuleFailed}!void {
-        if (naga_oil.add_composable_module(self.composer, desc) < 0) return error.AddComposableModuleFailed;
+        if (naga_oil.composer_add_composable_module(self.composer, desc) < 0) return error.AddComposableModuleFailed;
     }
 
     pub fn makeNagaModule(self: Composer, desc: naga_oil.ModuleDescriptor) error{NagaModuleNotCreated}!Module {
-        const module = naga_oil.make_naga_module(self.composer, desc);
+        const module = naga_oil.composer_make_naga_module(self.composer, desc);
         if (module == null) return error.NagaModuleNotCreated;
         return .{ .module = module };
     }
@@ -28,12 +28,8 @@ pub const Composer = struct {
 pub const Module = struct {
     module: naga_oil.Module,
 
-    pub fn deinit(self: Module) void {
-        naga_oil.source_destroy(self.source);
-    }
-
     pub fn toSource(self: Module) Source {
-        return .{ .source = naga_oil.naga_module_to_source(self.module) };
+        return .{ .source = naga_oil.module_to_source(self.module) };
     }
 };
 
@@ -45,15 +41,12 @@ pub const Source = struct {
     }
 };
 
+/// When used the called function owns the memory so deinit is omitted
 pub const ShaderDefs = struct {
     defs: naga_oil.ShaderDefs,
 
     pub fn init() ShaderDefs {
         return .{ .defs = naga_oil.shader_defs_create() };
-    }
-
-    pub fn deinit(self: ShaderDefs) void {
-        naga_oil.shader_defs_destroy(self.defs);
     }
 
     pub fn insertI32(self: ShaderDefs, key: []const u8, value: i32) void {
@@ -70,5 +63,40 @@ pub const ShaderDefs = struct {
 
     pub fn debugPrint(self: ShaderDefs) void {
         naga_oil.shader_defs_debug_print(self.defs);
+    }
+};
+
+pub const ImportDefinitions = struct {
+    imports: naga_oil.ImportDefinitions,
+
+    pub fn init() ImportDefinitions {
+        return .{ .imports = naga_oil.import_definitions_create() };
+    }
+
+    pub fn deinit(self: ImportDefinitions) void {
+        naga_oil.import_definitions_destroy(self.imports);
+    }
+
+    pub fn push(self: ImportDefinitions, import: []const u8) void {
+        naga_oil.import_definitions_push(self.imports, import.ptr);
+    }
+
+    pub fn pushWithItems(self: ImportDefinitions, import: []const u8, items: []const u8) void {
+        const vec = StringVec.init();
+        vec.push(items);
+        naga_oil.import_definitions_push_with_items(self.imports, import.ptr, vec);
+    }
+};
+
+/// When used the called function owns the memory so deinit is omitted
+const StringVec = struct {
+    defs: naga_oil.StringVec,
+
+    pub fn init() StringVec {
+        return .{ .defs = naga_oil.string_vec_create() };
+    }
+
+    pub fn push(self: StringVec, item: []const u8) void {
+        naga_oil.string_vec_push(self.defs, item.ptr);
     }
 };

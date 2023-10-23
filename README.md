@@ -36,14 +36,13 @@ try composer.addComposableModule(.{
     .file_path = "shaders/utils.wgsl",
 });
 
-// optionally created ShaderDefs for conditinal compilation
+// optionally create ShaderDefs for conditinal compilation
 const shader_defs = ShaderDefs.init();
-defer shader_defs.deinit();
 
 shader_defs.insertBool("HAS_TANGENTS", true);
 shader_defs.insertU32("MAX_LIGHTS", 256);
 
-// create a Naga Module with the main shader file
+// create a Module with the main shader file
 const module = try composer.makeNagaModule(.{
     .source = @embedFile("pbr.wgsl"),
     .file_path = "shaders/pbr.wgsl",

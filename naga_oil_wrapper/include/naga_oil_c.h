@@ -5,12 +5,15 @@
 
 typedef void *Composer;
 
+typedef void *ImportDefinitions;
+
 typedef void *ShaderDefs;
 
 typedef struct ComposableModuleDescriptor {
   const char *source;
   const char *file_path;
   const char *as_name;
+  ImportDefinitions additional_imports;
   ShaderDefs shader_defs;
 } ComposableModuleDescriptor;
 
@@ -20,23 +23,36 @@ typedef struct ModuleDescriptor {
   const char *source;
   const char *file_path;
   ShaderDefs shader_defs;
+  ImportDefinitions additional_imports;
 } ModuleDescriptor;
+
+typedef void *StringVec;
 
 Composer composer_create(void);
 
 void composer_destroy(Composer composer);
 
-int32_t add_composable_module(Composer composer, struct ComposableModuleDescriptor desc);
+int32_t composer_add_composable_module(Composer composer, struct ComposableModuleDescriptor desc);
 
-Module make_naga_module(Composer composer, struct ModuleDescriptor desc);
+Module composer_make_naga_module(Composer composer, struct ModuleDescriptor desc);
 
-char *naga_module_to_source(Module module);
+char *module_to_source(Module module);
 
 void source_destroy(char *src);
 
-ShaderDefs shader_defs_create(void);
+StringVec string_vec_create(void);
 
-void shader_defs_destroy(ShaderDefs map);
+void string_vec_push(StringVec vec, const char *item);
+
+ImportDefinitions import_definitions_create(void);
+
+void import_definitions_destroy(ImportDefinitions vec);
+
+void import_definitions_push(ImportDefinitions vec, const char *import);
+
+void import_definitions_push_with_items(ImportDefinitions vec, const char *import, StringVec items);
+
+ShaderDefs shader_defs_create(void);
 
 void shader_defs_insert_sint(ShaderDefs map, const char *key, int32_t value);
 

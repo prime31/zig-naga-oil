@@ -1,10 +1,10 @@
 use std::{
     collections::HashMap,
     ffi::{c_char, c_void, CStr, CString},
-    ptr::{self, null},
+    ptr::{self, null, null_mut},
 };
 
-use naga_oil::compose::{NagaModuleDescriptor, ShaderDefValue};
+use naga_oil::compose::{ImportDefinition, NagaModuleDescriptor, ShaderDefValue};
 
 type NagaComposer = naga_oil::compose::Composer;
 type NagaComposableModuleDescriptor<'a> = naga_oil::compose::ComposableModuleDescriptor<'a>;
@@ -12,6 +12,8 @@ type NagaComposableModuleDescriptor<'a> = naga_oil::compose::ComposableModuleDes
 type Composer = *mut c_void;
 type ShaderDefs = *mut c_void;
 type Module = *mut c_void;
+type ImportDefinitions = *mut c_void;
+type StringVec = *mut c_void;
 
 // unsafe fn c_str_to_string(str: *const c_char) -> String {
 //     match str == null() {
@@ -40,22 +42,7 @@ pub struct ModuleDescriptor {
     pub file_path: *const c_char,
     // pub shader_type: ShaderType,
     pub shader_defs: ShaderDefs,
-    // pub additional_imports: &'a [ImportDefinition],
-}
-
-impl<'a> Into<NagaModuleDescriptor<'a>> for ModuleDescriptor {
-    fn into(self) -> NagaModuleDescriptor<'a> {
-        unsafe {
-            let shader_defs: Box<HashMap<String, ShaderDefValue>> = Box::new(HashMap::new());
-
-            NagaModuleDescriptor {
-                source: c_str_to_str(self.source),
-                file_path: c_str_to_str(self.file_path),
-                shader_defs: *shader_defs,
-                ..Default::default()
-            }
-        }
-    }
+    pub additional_imports: ImportDefinitions,
 }
 
 #[repr(C)]
@@ -64,24 +51,8 @@ pub struct ComposableModuleDescriptor {
     pub file_path: *const c_char,
     // pub language: ShaderLanguage,
     pub as_name: *const c_char,
-    // pub additional_imports: &'a [ImportDefinition],
+    pub additional_imports: ImportDefinitions,
     pub shader_defs: ShaderDefs,
-}
-
-impl<'a> Into<NagaComposableModuleDescriptor<'a>> for ComposableModuleDescriptor {
-    fn into(self) -> NagaComposableModuleDescriptor<'a> {
-        unsafe {
-            let shader_defs: Box<HashMap<String, ShaderDefValue>> = Box::new(HashMap::new());
-
-            NagaComposableModuleDescriptor {
-                source: c_str_to_str(self.source),
-                file_path: c_str_to_str(self.file_path),
-                as_name: c_str_to_option_string(self.as_name),
-                shader_defs: *shader_defs,
-                ..Default::default()
-            }
-        }
-    }
 }
 
 #[no_mangle]
@@ -97,9 +68,25 @@ pub unsafe extern "C" fn composer_destroy(composer: Composer) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn add_composable_module(composer: Composer, desc: ComposableModuleDescriptor) -> i32 {
+pub unsafe extern "C" fn composer_add_composable_module(composer: Composer, desc: ComposableModuleDescriptor) -> i32 {
     let mut composer = Box::from_raw(composer as *mut NagaComposer);
-    let result = composer.add_composable_module(desc.into());
+    let shader_defs = match desc.shader_defs == null_mut() {
+        true => Box::new(HashMap::new()),
+        false => Box::from_raw(desc.shader_defs as *mut HashMap<String, ShaderDefValue>),
+    };
+    let additional_imports = match desc.additional_imports == null_mut() {
+        true => Box::new(Vec::new()),
+        false => Box::from_raw(desc.additional_imports as *mut Vec<ImportDefinition>),
+    };
+
+    let result = composer.add_composable_module(NagaComposableModuleDescriptor {
+        source: c_str_to_str(desc.source),
+        file_path: c_str_to_str(desc.file_path),
+        as_name: c_str_to_option_string(desc.as_name),
+        shader_defs: *shader_defs,
+        additional_imports: &(*additional_imports),
+        ..Default::default()
+    });
 
     let result = match result {
         Ok(_) => {
@@ -112,29 +99,46 @@ pub unsafe extern "C" fn add_composable_module(composer: Composer, desc: Composa
         }
     };
     Box::leak(composer);
+    Box::leak(additional_imports);
     result
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn make_naga_module(composer: Composer, desc: ModuleDescriptor) -> Module {
+pub unsafe extern "C" fn composer_make_naga_module(composer: Composer, desc: ModuleDescriptor) -> Module {
     let mut composer = Box::from_raw(composer as *mut NagaComposer);
-    let result = composer.make_naga_module(desc.into());
 
-    match result {
-        Ok(module) => {
-            Box::leak(composer);
-            Box::into_raw(Box::new(module)) as *mut c_void
-        }
+    let shader_defs = match desc.shader_defs == null_mut() {
+        true => Box::new(HashMap::new()),
+        false => Box::from_raw(desc.shader_defs as *mut HashMap<String, ShaderDefValue>),
+    };
+    let additional_imports = match desc.additional_imports == null_mut() {
+        true => Box::new(Vec::new()),
+        false => Box::from_raw(desc.additional_imports as *mut Vec<ImportDefinition>),
+    };
+
+    let result = composer.make_naga_module(NagaModuleDescriptor {
+        source: c_str_to_str(desc.source),
+        file_path: c_str_to_str(desc.file_path),
+        shader_defs: *shader_defs,
+        additional_imports: &(*additional_imports),
+        ..Default::default()
+    });
+
+    let output = match result {
+        Ok(module) => Box::into_raw(Box::new(module)) as *mut c_void,
         Err(e) => {
             println!("{}", e.emit_to_string(&composer));
-            Box::leak(composer);
             ptr::null_mut()
         }
-    }
+    };
+
+    Box::leak(additional_imports);
+    Box::leak(composer);
+    output
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn naga_module_to_source(module: Module) -> *mut c_char {
+pub unsafe extern "C" fn module_to_source(module: Module) -> *mut c_char {
     let module = Box::from_raw(module as *mut naga::Module);
 
     let info = naga::valid::Validator::new(
@@ -154,6 +158,60 @@ pub unsafe extern "C" fn source_destroy(src: *mut c_char) {
     drop(CString::from_raw(src));
 }
 
+// StringVec helpers
+#[no_mangle]
+pub unsafe extern "C" fn string_vec_create() -> StringVec {
+    let vec: Box<Vec<String>> = Box::new(Vec::new());
+    Box::into_raw(vec) as *mut c_void
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn string_vec_push(vec: StringVec, item: *const c_char) {
+    let mut vec: Box<Vec<String>> = Box::from_raw(vec as *mut Vec<String>);
+    vec.push(CStr::from_ptr(item).to_str().unwrap().to_string());
+    Box::leak(vec);
+}
+
+// ImportDefinition helpers
+#[no_mangle]
+pub unsafe extern "C" fn import_definitions_create() -> ImportDefinitions {
+    let vec: Box<Vec<ImportDefinition>> = Box::new(Vec::new());
+    Box::into_raw(vec) as *mut c_void
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn import_definitions_destroy(vec: ImportDefinitions) {
+    let vec: Box<Vec<ImportDefinition>> = Box::from_raw(vec as *mut Vec<ImportDefinition>);
+    drop(vec);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn import_definitions_push(vec: ImportDefinitions, import: *const c_char) {
+    let mut vec: Box<Vec<ImportDefinition>> = Box::from_raw(vec as *mut Vec<ImportDefinition>);
+    vec.push(ImportDefinition {
+        import: CStr::from_ptr(import).to_str().unwrap().to_string(),
+        ..Default::default()
+    });
+    Box::leak(vec);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn import_definitions_push_with_items(
+    vec: ImportDefinitions,
+    import: *const c_char,
+    items: StringVec,
+) {
+    let mut vec: Box<Vec<ImportDefinition>> = Box::from_raw(vec as *mut Vec<ImportDefinition>);
+    let string_vec: Box<Vec<String>> = Box::from_raw(items as *mut Vec<String>);
+
+    vec.push(ImportDefinition {
+        import: CStr::from_ptr(import).to_str().unwrap().to_string(),
+        items: *string_vec,
+        ..Default::default()
+    });
+    Box::leak(vec);
+}
+
 // HashMap helpers
 #[no_mangle]
 pub unsafe extern "C" fn shader_defs_create() -> ShaderDefs {
@@ -161,11 +219,11 @@ pub unsafe extern "C" fn shader_defs_create() -> ShaderDefs {
     Box::into_raw(map) as *mut c_void
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn shader_defs_destroy(map: ShaderDefs) {
-    let map: Box<HashMap<String, ShaderDefValue>> = Box::from_raw(map as *mut HashMap<String, ShaderDefValue>);
-    drop(map);
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn shader_defs_destroy(map: ShaderDefs) {
+//     let map: Box<HashMap<String, ShaderDefValue>> = Box::from_raw(map as *mut HashMap<String, ShaderDefValue>);
+//     drop(map);
+// }
 
 #[no_mangle]
 pub unsafe extern "C" fn shader_defs_insert_sint(map: ShaderDefs, key: *const c_char, value: i32) {

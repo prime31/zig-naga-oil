@@ -22,6 +22,19 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const exe = b.addExecutable(.{
+        .name = "run",
+        .root_source_file = .{ .path = "test_data/tests.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    linkArtifact(exe);
+    exe.addModule("naga_oil", getModule(b));
+
+    const run_exe = b.addRunArtifact(exe);
+    const run_step = b.step("run", "Run unit tests");
+    run_step.dependOn(&run_exe.step);
+
     const unit_tests = b.addTest(.{
         .root_source_file = .{ .path = "test_data/tests.zig" },
         .target = target,
